@@ -6,11 +6,50 @@ import Journey from "../models/journeyModel.js";
 // @desc GET ALL POSTS
 export const getPosts = async (req, res) => {
     try {
-        const journey = await Journey.find().sort({ createdAt: -1 }).lean();
+        const { page } = req.query;
+        const LIMIT = 6;
+        // GET THE STARTING INDEX OF EVERY PAGE
+        const startIndex = (Number(page) - 1) * LIMIT;
+        // get the total number of posts
+        const total = await Journey.countDocuments({});
+
+        const journey = await Journey.find().sort({ createdAt: -1 }).limit(LIMIT).skip(startIndex).lean();
+
+        res.json({ data: journey, currentPage: Number(page), numberOfPages: Math.ceil(total / LIMIT) });
+    } catch (error) {
+        res.status(404).json({ message: error.message });
+    }
+}
+
+// @desc GET POST BY SEARCH
+export const getSearchedPosts = async (req, res) => {
+    try {
+        const { searchQuery, tags } = req.query;
+        const title = new RegExp(searchQuery, 'i');
+
+        const journey = await Journey.find({ $or: [ { title }, { tags: { $in: tags.split(',') }} ] }).sort({ createdAt: -1 });
+
+        res.json({ data: journey });
+    } catch (error) {
+        res.status(500).json({ message: error.message});
+    }
+}
+
+// @desc GET SINGLE POST WITH ID
+export const getSinglePost = async (req, res) => {
+    try {
+        const { id } = req.params;
+
+        const journey = await Journey.findById(id);
+
+        // check if journey exist
+        if (!journey) {
+            res.status(400).json({ message: 'Post does not exist'});
+        }
 
         res.json(journey);
     } catch (error) {
-        res.status(404).json({ message: error.message });
+        res.status(500).json({ message: error.message });
     }
 }
 
@@ -131,5 +170,26 @@ export const likePost = async (req, res) => {
         res.json(updatedJourney);
     } catch (error) {
         res.status(409).json({ message: error.message });
+    }
+}
+
+// @desc COMMENTS ON POST
+export const commentPost = async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { comment } = req.body;
+
+        if (!mongoose.Types.ObjectId.isValid(id) || !comment) {
+            return res.status(400).json({ message: 'Credentials not complete'});
+        }
+
+        const journey = await Journey.findById(id);
+
+        journey.comments.unshift(comment);
+        const updatedJourney = await Journey.findByIdAndUpdate(id, journey, { new: true });
+
+        res.json(updatedJourney);
+    } catch (error) {
+        res.status(500).json({ message: error.message });
     }
 }

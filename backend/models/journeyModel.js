@@ -12,6 +12,10 @@ const journeySchema = new Schema({
         type: Number,
         default: 0
     },
+    comments: {
+        type: [String],
+        default: []
+    },
     // likes: {
     //     type: [String],
     //     default: []
